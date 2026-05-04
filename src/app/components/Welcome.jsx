@@ -126,7 +126,7 @@ export function Welcome() {
               {/* FLOAT CARD */}
               <div className="absolute bottom-6 left-6 right-6 bg-white/90 backdrop-blur-md rounded-2xl p-5 shadow-lg">
                 <div className="text-sm text-gray-500">Predicted Price</div>
-                <div className="text-2xl font-bold">$847,500</div>
+                <div className="text-2xl font-bold">₹847,500</div>
                 <div className="flex items-center text-green-600 text-sm">
                   <TrendingUp className="w-4 h-4 mr-1" />
                   +12.5% market value

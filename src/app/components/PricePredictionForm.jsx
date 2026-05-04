@@ -1,186 +1,390 @@
 import { useState } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { Slider } from "./ui/slider";
-import { Building2, MapPin, Home, TrendingUp } from "lucide-react";
+import {
+  MapPin,
+  Building2,
+  BedDouble,
+  Bath,
+  Layers,
+  Calendar,
+  Wrench,
+  Car,
+  Home,
+  RefreshCcw,
+  RotateCcw,
+  TrendingUp,
+  Info,
+} from "lucide-react";
 import { predictPrice } from "../../services/predictService";
-import { loginUser } from "../../services/authService";
+
+const STEP_FIELDS = [
+  "location",
+  "propertyType",
+  "bedrooms",
+  "bathrooms",
+  "floors",
+  "yearBuilt",
+  "condition",
+  "garage",
+];
+
+function countFilled(state) {
+  return STEP_FIELDS.filter((k) => state[k] !== "").length;
+}
+
+const EMPTY_STATE = {
+  location: "",
+  propertyType: "",
+  bedrooms: "",
+  bathrooms: "",
+  floors: "",
+  yearBuilt: "",
+  condition: "",
+  garage: "",
+  sqft: [1800],
+};
+
+function FieldSelect({
+  icon: Icon,
+  label,
+  value,
+  onValueChange,
+  placeholder,
+  children,
+  disabled,
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label className="flex items-center gap-1.5 text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
+        <Icon className="w-3 h-3" />
+        {label}
+      </Label>
+
+      <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+        <SelectTrigger
+          className={`h-9 rounded-lg border text-sm transition-all ${
+            value
+              ? "border-border bg-background"
+              : "border-border/50 bg-muted/30"
+          }`}
+        >
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent className="rounded-lg">{children}</SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 export function PricePredictionForm() {
-  const [location, setLocation] = useState("");
-  const [propertyType, setPropertyType] = useState("");
-  const [sqft, setSqft] = useState([1500]);
-  const [bedrooms, setBedrooms] = useState("");
+  const [form, setForm] = useState(EMPTY_STATE);
   const [predicted, setPredicted] = useState(false);
   const [price, setPrice] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [lockedLocation, setLockedLocation] = useState("");
+
+  const set = (key) => (val) =>
+    setForm((prev) => ({ ...prev, [key]: val }));
+
+  const filled = countFilled(form);
+  const allFilled = filled === STEP_FIELDS.length;
 
   const handlePredict = async () => {
     try {
       setLoading(true);
 
       const res = await predictPrice({
-        area: sqft[0],                  // backend expects "area"
-        bedrooms: parseInt(bedrooms),   // convert to number
-        location,
-        property_type: propertyType,
+        area: form.sqft[0],
+        bedrooms: parseInt(form.bedrooms),
+        bathrooms: parseInt(form.bathrooms),
+        floors: parseInt(form.floors),
+        year_built: parseInt(form.yearBuilt),
+        condition: form.condition,
+        garage: form.garage,
+        location: form.location,
+        property_type: form.propertyType,
       });
 
-      console.log("API Response:", res.data);
-
+      setLockedLocation(form.location);
       setPrice(res.data.predicted_price);
       setPredicted(true);
-    } catch (error) {
-      console.error("Prediction Error:", error);
-      alert("Something went wrong. Check backend connection.");
+    } catch (err) {
+      console.error(err);
+      alert("Backend error");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleEdit = () => setPredicted(false);
+
+  const handleNewPrediction = () => {
+    setForm({
+      ...EMPTY_STATE,
+      location: lockedLocation,
+    });
+    setPrice(0);
+    setPredicted(false);
+  };
+
+  const summaryFields = [
+    { label: "Location", value: form.location },
+    { label: "Type", value: form.propertyType },
+    { label: "Bedrooms", value: form.bedrooms ? `${form.bedrooms} BHK` : "" },
+    {
+      label: "Bathrooms",
+      value: form.bathrooms ? `${form.bathrooms} Bath` : "",
+    },
+    { label: "Floors", value: form.floors },
+    { label: "Condition", value: form.condition },
+    { label: "Garage", value: form.garage },
+    { label: "Year Built", value: form.yearBuilt },
+    { label: "Area", value: `${form.sqft[0]} sq ft` },
+  ];
+
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full max-w-xl font-sans scale-95 origin-top">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
-        className="space-y-6"
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="rounded-xl overflow-hidden border border-border/40 shadow-xl bg-background"
       >
-        {!predicted ? (
-          <>
-            <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-6 py-4 bg-zinc-950">
+          <div className="w-10 h-10 rounded-xl bg-white/8 flex items-center justify-center">
+            <Home className="w-5 h-5 text-zinc-200 stroke-[1.5]" />
+          </div>
 
-              {/* Location */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  Location
-                </Label>
-                <Select value={location} onValueChange={setLocation}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="downtown">Downtown</SelectItem>
-                    <SelectItem value="suburbs">Suburbs</SelectItem>
-                    <SelectItem value="outskirts">Outskirts</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <div>
+            <h2 className="text-base font-semibold text-zinc-100 tracking-tight">
+              Property Valuation
+            </h2>
+            <p className="text-[10px] font-medium tracking-widest uppercase text-zinc-500">
+              AI-Powered Price Estimate
+            </p>
+          </div>
+        </div>
 
-              {/* Property Type */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4" />
-                  Property Type
-                </Label>
-                <Select value={propertyType} onValueChange={setPropertyType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select property type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="residential">Residential</SelectItem>
-                    <SelectItem value="commercial">Commercial</SelectItem>
-                    <SelectItem value="luxury">Luxury</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+        <div className="p-6">
+          <AnimatePresence mode="wait">
+            {!predicted ? (
+              <motion.div
+                key="form"
+                initial={{ opacity: 0, x: -16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 16 }}
+              >
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-3">
+                    <FieldSelect
+                      icon={MapPin}
+                      label="Location"
+                      value={form.location}
+                      onValueChange={set("location")}
+                      placeholder="Select location"
+                    >
+                      <SelectItem value="downtown">Downtown</SelectItem>
+                      <SelectItem value="Suburbs">Suburbs</SelectItem>
+                      <SelectItem value="Urban">Urban</SelectItem>
+                      <SelectItem value="Rural">Rural</SelectItem>
+                    </FieldSelect>
 
-              {/* Square Feet */}
-              <div className="space-y-2">
-                <Label className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Home className="w-4 h-4" />
-                    Square Footage
-                  </span>
-                  <span className="font-mono text-sm">{sqft[0]} sq ft</span>
-                </Label>
-                <Slider
-                  min={500}
-                  max={5000}
-                  step={100}
-                  value={sqft}
-                  onValueChange={setSqft}
-                  className="py-4"
-                />
-              </div>
+                    <FieldSelect
+                      icon={BedDouble}
+                      label="Bedrooms"
+                      value={form.bedrooms}
+                      onValueChange={set("bedrooms")}
+                      placeholder="Select BHK"
+                    >
+                      {["1", "2", "3", "4", "5"].map((n) => (
+                        <SelectItem key={n} value={n}>
+                          {n === "5" ? "5+ BHK" : `${n} BHK`}
+                        </SelectItem>
+                      ))}
+                    </FieldSelect>
 
-              {/* Bedrooms */}
-              <div className="space-y-2">
-                <Label>Bedrooms</Label>
-                <Select value={bedrooms} onValueChange={setBedrooms}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select bedrooms" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 BHK</SelectItem>
-                    <SelectItem value="2">2 BHK</SelectItem>
-                    <SelectItem value="3">3 BHK</SelectItem>
-                    <SelectItem value="4">4+ BHK</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                    <FieldSelect
+                      icon={Layers}
+                      label="Floors"
+                      value={form.floors}
+                      onValueChange={set("floors")}
+                      placeholder="Select floors"
+                    >
+                      {["1", "2", "3"].map((n) => (
+                        <SelectItem key={n} value={n}>
+                          {n}
+                        </SelectItem>
+                      ))}
+                    </FieldSelect>
 
-            </div>
+                    <FieldSelect
+                      icon={Car}
+                      label="Garage"
+                      value={form.garage}
+                      onValueChange={set("garage")}
+                      placeholder="Garage?"
+                    >
+                      <SelectItem value="YES">Yes</SelectItem>
+                      <SelectItem value="NO">No</SelectItem>
+                    </FieldSelect>
+                  </div>
 
-            {/* BUTTON */}
-            <Button
-              onClick={handlePredict}
-              disabled={!location || !propertyType || !bedrooms || loading}
-              className="w-full h-12 text-base"
-              size="lg"
-            >
-              {loading ? "Predicting..." : "Predict Value"}
-            </Button>
-          </>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-6"
-          >
-            {/* RESULT CARD */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 p-8 border border-blue-100">
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Estimated Value
+                  <div className="space-y-3">
+                    <FieldSelect
+                      icon={Building2}
+                      label="Property Type"
+                      value={form.propertyType}
+                      onValueChange={set("propertyType")}
+                      placeholder="Select type"
+                    >
+                      <SelectItem value="luxury">Luxury</SelectItem>
+                      <SelectItem value="standard">Standard</SelectItem>
+                      <SelectItem value="villa">Villa</SelectItem>
+                    </FieldSelect>
+
+                    <FieldSelect
+                      icon={Bath}
+                      label="Bathrooms"
+                      value={form.bathrooms}
+                      onValueChange={set("bathrooms")}
+                      placeholder="Select baths"
+                    >
+                      {["1", "2", "3", "4"].map((n) => (
+                        <SelectItem key={n} value={n}>
+                          {n}
+                        </SelectItem>
+                      ))}
+                    </FieldSelect>
+
+                    <FieldSelect
+                      icon={Wrench}
+                      label="Condition"
+                      value={form.condition}
+                      onValueChange={set("condition")}
+                      placeholder="Select condition"
+                    >
+                      {["excellent", "good", "fair", "poor"].map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </FieldSelect>
+
+                    <FieldSelect
+                      icon={Calendar}
+                      label="Year Built"
+                      value={form.yearBuilt}
+                      onValueChange={set("yearBuilt")}
+                      placeholder="Select year"
+                    >
+                      {Array.from({ length: 2026 - 1900 + 1 }, (_, i) => {
+                        const y = 2026 - i;
+                        return (
+                          <SelectItem key={y} value={y.toString()}>
+                            {y}
+                          </SelectItem>
+                        );
+                      })}
+                    </FieldSelect>
+                  </div>
                 </div>
-                <div className="text-5xl font-bold tracking-tight mb-4">
-                  ₹{price.toLocaleString()}
+
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-[10px] uppercase tracking-widest">
+                      Square Footage
+                    </Label>
+
+                    <span className="text-xs font-medium">
+                      {form.sqft[0].toLocaleString()} sq ft
+                    </span>
+                  </div>
+
+                  <Slider
+                    min={500}
+                    max={5000}
+                    step={100}
+                    value={form.sqft}
+                    onValueChange={set("sqft")}
+                  />
                 </div>
-              </div>
-            </div>
 
-            {/* RANGE */}
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-xl font-bold">₹{(price * 0.9).toLocaleString()}</div>
-                <div className="text-xs text-gray-500">Low</div>
-              </div>
-              <div>
-                <div className="text-xl font-bold">₹{price.toLocaleString()}</div>
-                <div className="text-xs text-gray-500">Predicted</div>
-              </div>
-              <div>
-                <div className="text-xl font-bold">₹{(price * 1.1).toLocaleString()}</div>
-                <div className="text-xs text-gray-500">High</div>
-              </div>
-            </div>
+                <Button
+                  onClick={handlePredict}
+                  disabled={loading || !allFilled}
+                  className="w-full mt-5 h-9 text-sm rounded-lg bg-zinc-950 text-white"
+                >
+                  <TrendingUp className="w-4 h-4 mr-2" />
+                  {loading ? "Calculating..." : "Predict Value"}
+                </Button>
 
-            {/* RESET */}
-            <Button
-              onClick={() => setPredicted(false)}
-              variant="outline"
-              className="w-full"
-            >
-              New Prediction
-            </Button>
-          </motion.div>
-        )}
+                <p className="text-[10px] text-muted-foreground text-center mt-3">
+                  Estimate based on market data
+                </p>
+              </motion.div>
+            ) : (
+              <motion.div key="result" className="space-y-4">
+                <div className="relative overflow-hidden bg-zinc-950 rounded-xl p-5 text-center">
+                  <p className="text-[10px] uppercase text-zinc-500 mb-2">
+                    Estimated Market Value
+                  </p>
+
+                  <h1 className="text-3xl font-bold text-white">
+                    ₹{price.toLocaleString("en-IN")}
+                  </h1>
+                </div>
+
+                <div className="bg-muted/40 rounded-lg p-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    {summaryFields.map(({ label, value }) => (
+                      <div
+                        key={label}
+                        className="bg-background border rounded-lg px-2 py-2"
+                      >
+                        <p className="text-[10px] text-muted-foreground">
+                          {label}
+                        </p>
+                        <p className="text-xs font-medium truncate">
+                          {value || "—"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleEdit}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    <RefreshCcw className="w-4 h-4 mr-1" />
+                    Edit
+                  </Button>
+
+                  <Button
+                    onClick={handleNewPrediction}
+                    className="flex-1 bg-zinc-950 text-white"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-1" />
+                    New
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </motion.div>
     </div>
   );
